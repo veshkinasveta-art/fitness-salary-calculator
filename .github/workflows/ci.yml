@@ -28,12 +28,12 @@ jobs:
       - run: npm test
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.repository == 'veshkinasveta-art/veshkinasveta-art.github.io'
         with:
           path: dist
 
   deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.repository == 'veshkinasveta-art/veshkinasveta-art.github.io'
     needs: test
     runs-on: ubuntu-latest
     environment:

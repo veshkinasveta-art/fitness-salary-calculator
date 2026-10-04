@@ -2,7 +2,7 @@
 
 Веб-приложение для расчёта зарплаты команды фитнес-студии. Поддерживает любое число сотрудников, светлую и тёмную тему, офлайн-черновики и совместную работу через Supabase.
 
-Публичная страница: https://veshkinasveta-art.github.io/fitness-salary-calculator/
+Публичная страница: https://veshkinasveta-art.github.io/
 
 Android-проект в соседней папке не изменяется и не удаляется.
 
@@ -39,7 +39,7 @@ npm run test:e2e
 1. Создайте бесплатный проект Supabase.
 2. Примените SQL из `supabase/migrations`.
 3. Скопируйте URL и anon-ключ в `.env` по образцу `.env.example`.
-4. Добавьте GitHub Pages URL в Auth → Redirect URLs.
+4. Добавьте `https://veshkinasveta-art.github.io/` в Auth → Redirect URLs.
 5. Настройте Google Таблицу по [docs/GOOGLE_SHEETS_SETUP.md](docs/GOOGLE_SHEETS_SETUP.md).
 
 Подробности: [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) и [docs/PRIVACY.md](docs/PRIVACY.md).

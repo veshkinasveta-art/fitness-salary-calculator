@@ -6,12 +6,12 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   use: {
-    baseURL: 'http://127.0.0.1:4173/fitness-salary-calculator/',
+    baseURL: 'http://127.0.0.1:4173/',
     trace: 'on-first-retry',
   },
   webServer: {
     command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 4173',
-    url: 'http://127.0.0.1:4173/fitness-salary-calculator/',
+    url: 'http://127.0.0.1:4173/',
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
   },

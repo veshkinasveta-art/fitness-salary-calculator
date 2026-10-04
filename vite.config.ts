@@ -3,7 +3,7 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  base: '/fitness-salary-calculator/',
+  base: '/',
   plugins: [
     react(),
     VitePWA({
@@ -16,8 +16,8 @@ export default defineConfig({
         theme_color: '#12372a',
         background_color: '#f5f7f4',
         display: 'standalone',
-        start_url: '/fitness-salary-calculator/',
-        scope: '/fitness-salary-calculator/',
+        start_url: '/',
+        scope: '/',
         lang: 'ru',
         icons: [
           {
