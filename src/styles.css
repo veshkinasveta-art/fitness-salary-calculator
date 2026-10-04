@@ -734,6 +734,39 @@ h3 {
   }
 }
 
+.dialog-backdrop {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  place-items: end center;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, #09110d 46%, transparent);
+}
+
+.dialog {
+  width: min(100%, 520px);
+  max-height: min(88dvh, 720px);
+  overflow: auto;
+  padding: 18px;
+}
+
+.setup-steps {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.setup-steps li {
+  margin: 0 0 8px;
+  color: var(--text-muted);
+}
+
+@media (min-width: 720px) {
+  .dialog-backdrop {
+    place-items: center;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

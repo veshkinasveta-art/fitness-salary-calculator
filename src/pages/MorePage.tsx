@@ -16,8 +16,13 @@ import { Link } from 'react-router-dom'
 import { useRef, useState } from 'react'
 import { useAppState } from '../app/AppState'
 import type { StudioSettings } from '../app/model'
+import { InviteDialog } from '../features/auth/InviteDialog'
+import { SupabaseSetupDialog } from '../features/auth/SupabaseSetupDialog'
+import { SheetsSetupDialog } from '../features/sheets/SheetsSetupDialog'
 import { createBackup } from '../lib/backup'
 import { formatMoney } from '../lib/format'
+import { spreadsheetUrl } from '../lib/googleSheet'
+import { isSupabaseConfigured } from '../lib/supabase'
 import { type ThemePreference, useTheme } from '../lib/theme'
 
 function rublesToKopecks(value: string) {
@@ -44,7 +49,11 @@ export function MorePage() {
   const { preference, setPreference } = useTheme()
   const [draft, setDraft] = useState<StudioSettings>(settings)
   const [saved, setSaved] = useState(false)
+  const [dialog, setDialog] = useState<'sheets' | 'supabase' | 'invite' | null>(
+    null,
+  )
   const importRef = useRef<HTMLInputElement>(null)
+  const sheetId = settings.googleSpreadsheetId
 
   const save = () => {
     updateSettings(draft)
@@ -143,8 +152,13 @@ export function MorePage() {
           <p className="muted small">
             Основная база, авторизация и совместный доступ команды.
           </p>
-          <button type="button" className="button button-secondary">
-            <Database size={17} /> Подключить Supabase
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => setDialog('supabase')}
+          >
+            <Database size={17} />{' '}
+            {isSupabaseConfigured ? 'Изменить подключение' : 'Подключить Supabase'}
           </button>
         </article>
 
@@ -154,17 +168,37 @@ export function MorePage() {
               <p className="eyebrow">Автоматическая копия</p>
               <h2>Google Таблица</h2>
             </div>
-            <span className="status status-warning">
+            <span
+              className={`status ${
+                sheetId ? 'status-success' : 'status-warning'
+              }`}
+            >
               <FileSpreadsheet size={14} />
-              Не подключена
+              {sheetId ? 'Подключена' : 'Не подключена'}
             </span>
           </div>
           <p className="muted small">
             После сохранения данные появятся в общей таблице через несколько секунд.
           </p>
-          <button type="button" className="button button-secondary">
-            <FileSpreadsheet size={17} /> Настроить таблицу
-          </button>
+          <div className="row" style={{ flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => setDialog('sheets')}
+            >
+              <FileSpreadsheet size={17} /> Настроить таблицу
+            </button>
+            {sheetId && (
+              <a
+                className="button button-ghost"
+                href={spreadsheetUrl(sheetId)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Открыть
+              </a>
+            )}
+          </div>
         </article>
       </section>
 
@@ -337,7 +371,11 @@ export function MorePage() {
               <p className="muted small">Владелец и менеджер</p>
             </div>
           </div>
-          <button type="button" className="button button-secondary">
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => setDialog('invite')}
+          >
             <MailPlus size={17} /> Пригласить участника
           </button>
         </article>
@@ -406,6 +444,26 @@ export function MorePage() {
           <Link to="/privacy">Политика конфиденциальности</Link>
         </p>
       </div>
+      {dialog === 'sheets' && (
+        <SheetsSetupDialog
+          currentId={sheetId}
+          onClose={() => setDialog(null)}
+          onSave={(id) => {
+            const next = { ...settings, googleSpreadsheetId: id }
+            setDraft(next)
+            updateSettings(next)
+          }}
+        />
+      )}
+      {dialog === 'supabase' && (
+        <SupabaseSetupDialog onClose={() => setDialog(null)} />
+      )}
+      {dialog === 'invite' && (
+        <InviteDialog
+          studioName={settings.studioName}
+          onClose={() => setDialog(null)}
+        />
+      )}
     </div>
   )
 }

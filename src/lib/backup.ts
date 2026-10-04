@@ -47,6 +47,7 @@ const settingsSchema = z.object({
   kpiMemberships: z.number().int().nonnegative(),
   kpiAmountKopecks: moneySchema,
   distribution: z.enum(['proportional', 'equal', 'weighted']),
+  googleSpreadsheetId: z.string().min(10).optional(),
 })
 
 const periodSchema = z.object({

@@ -34,6 +34,7 @@ export interface StudioSettings {
   kpiMemberships: number
   kpiAmountKopecks: number
   distribution: 'proportional' | 'equal' | 'weighted'
+  googleSpreadsheetId?: string
 }
 
 export interface EmployeeResult {
