@@ -1,5 +1,5 @@
 import { Check, Minus, Plus, Save, UserPlus } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useAppState } from '../app/AppState'
 import { formatMoney, formatMonth } from '../lib/format'
 
@@ -58,13 +58,7 @@ export function InputPage() {
   const kpiTrialsProgress = activeEmployee
     ? `${activeEmployee.trials}`
     : '0'
-  const memberships = useMemo(
-    () =>
-      activeEmployee
-        ? Object.values(activeEmployee.sales).reduce((sum, value) => sum + value, 0)
-        : 0,
-    [activeEmployee],
-  )
+  const memberships = employeeResult?.memberships ?? 0
 
   const runSave = async (close = false) => {
     setSaving(true)
@@ -196,6 +190,7 @@ export function InputPage() {
                 <h3>{product.name}</h3>
                 <p className="muted small">
                   {formatMoney(product.priceKopecks)} за абонемент
+                  {product.trainings === 8 ? ' · не входит в KPI' : ''}
                 </p>
               </div>
               <Counter

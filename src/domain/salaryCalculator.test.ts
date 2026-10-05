@@ -22,7 +22,7 @@ const employees: EmployeeInput[] = [
     shifts: 10,
     trials: 20,
     weight: 1,
-    sales: { ...emptySales, [productIds.p8]: 3, [productIds.p12]: 2 },
+    sales: { ...emptySales, [productIds.p8]: 3, [productIds.p12]: 5 },
   },
   {
     id: 'maria',
@@ -43,7 +43,7 @@ describe('studio salary engine', () => {
       defaultProducts,
       defaultSettings,
     )
-    expect(result.totalRevenueKopecks).toBe(2_100_000)
+    expect(result.totalRevenueKopecks).toBe(3_450_000)
     expect(result.completionPercent).toBeLessThan(80)
     expect(result.bonusFundKopecks).toBe(0)
   })
@@ -94,6 +94,23 @@ describe('studio salary engine', () => {
     expect(elena?.kpiBonusKopecks).toBe(1_000_000)
     expect(maria?.kpiReached).toBe(false)
     expect(maria?.kpiBonusKopecks).toBe(0)
+  })
+
+  it('does not count 8-training memberships toward KPI', () => {
+    const onlyEightTrainings: EmployeeInput = {
+      ...employees[0]!,
+      trials: 20,
+      sales: { ...emptySales, [productIds.p8]: 12 },
+    }
+    const { result } = calculateStudioPeriod(
+      [onlyEightTrainings],
+      defaultProducts,
+      defaultSettings,
+    )
+    expect(result.totalRevenueKopecks).toBe(3_600_000)
+    expect(result.employees[0]?.memberships).toBe(0)
+    expect(result.employees[0]?.kpiReached).toBe(false)
+    expect(result.employees[0]?.kpiBonusKopecks).toBe(0)
   })
 
   it('pays shifts as an integer rate and keeps zero revenue valid', () => {

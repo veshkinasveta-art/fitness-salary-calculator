@@ -9,6 +9,19 @@ import { checkedMultiply } from './money.ts'
 import { calculateSalary } from './salaryCalculator.ts'
 import type { SalaryCalculationInput, SalaryCalculationSnapshot } from './types.ts'
 
+export function countKpiMemberships(
+  employee: EmployeeInput,
+  products: readonly Product[],
+): number {
+  return products.reduce(
+    (total, product) =>
+      product.trainings === 8
+        ? total
+        : total + Math.max(0, employee.sales[product.id] ?? 0),
+    0,
+  )
+}
+
 export function toDomainInput(
   employees: readonly EmployeeInput[],
   products: readonly Product[],
@@ -26,10 +39,7 @@ export function toDomainInput(
       weight: employee.weight,
       metrics: {
         trials: employee.trials,
-        memberships: Object.values(employee.sales).reduce(
-          (sum, quantity) => sum + Math.max(0, quantity),
-          0,
-        ),
+        memberships: countKpiMemberships(employee, products),
       },
     })),
     products: products.map((product) => ({
@@ -98,10 +108,7 @@ export function toTeamResult(
     const calculated = snapshot.employees.find(
       (item) => item.employeeId === employee.id,
     )
-    const memberships = Object.values(employee.sales).reduce(
-      (sum, quantity) => sum + Math.max(0, quantity),
-      0,
-    )
+    const memberships = countKpiMemberships(employee, products)
     return {
       employeeId: employee.id,
       revenueKopecks: revenues[index] ?? 0,
