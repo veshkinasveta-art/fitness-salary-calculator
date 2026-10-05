@@ -12,21 +12,34 @@ export function SheetsSetupDialog({
 }: {
   currentId?: string
   onClose: () => void
-  onSave: (spreadsheetId: string) => void
+  onSave: (spreadsheetId: string) => Promise<void>
 }) {
   const [value, setValue] = useState(
     currentId ? spreadsheetUrl(currentId) : '',
   )
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
   const parsed = parseSpreadsheetId(value)
 
-  const save = () => {
+  const save = async () => {
     if (!parsed) {
       setError('Вставьте ссылку на Google Таблицу или её идентификатор')
       return
     }
-    onSave(parsed)
-    onClose()
+    setSaving(true)
+    setError('')
+    try {
+      await onSave(parsed)
+      onClose()
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : 'Не удалось сохранить таблицу',
+      )
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -69,9 +82,14 @@ export function SheetsSetupDialog({
         <p className="muted small">Идентификатор таблицы: {parsed}</p>
       )}
       <div className="row" style={{ flexWrap: 'wrap' }}>
-        <button type="button" className="button" onClick={save}>
+        <button
+          type="button"
+          className="button"
+          onClick={() => void save()}
+          disabled={saving}
+        >
           <Check size={17} />
-          Сохранить таблицу
+          {saving ? 'Сохраняем…' : 'Сохранить таблицу'}
         </button>
         {currentId && (
           <a

@@ -49,6 +49,7 @@ export function InputPage() {
   } = useAppState()
   const [activeEmployeeId, setActiveEmployeeId] = useState(employees[0]?.id ?? '')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const activeEmployee =
     employees.find((employee) => employee.id === activeEmployeeId) ?? employees[0]
   const employeeResult = result.employees.find(
@@ -67,9 +68,14 @@ export function InputPage() {
 
   const runSave = async (close = false) => {
     setSaving(true)
+    setSaveError('')
     try {
       if (close) await closePeriod()
       else await saveDraft()
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : 'Не удалось сохранить данные',
+      )
     } finally {
       setSaving(false)
     }
@@ -261,6 +267,11 @@ export function InputPage() {
       </section>
 
       <div className="sticky-summary">
+        {saveError && (
+          <p className="field-error" role="alert" style={{ marginBottom: 8 }}>
+            {saveError}
+          </p>
+        )}
         <div className="row-between">
           <div>
             <p className="muted small">Прогноз зарплаты</p>

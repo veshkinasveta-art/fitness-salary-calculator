@@ -28,6 +28,7 @@ import {
   closeRemotePeriod,
   pullRemoteStudio,
   pushDraft,
+  saveRemoteBonusTiers,
 } from '../lib/studioRepository.ts'
 import { isSupabaseConfigured, supabase } from '../lib/supabase.ts'
 import {
@@ -37,6 +38,7 @@ import {
   demoHistory,
 } from './demoData.ts'
 import type {
+  BonusTier,
   EmployeeInput,
   PeriodRecord,
   Product,
@@ -80,6 +82,7 @@ interface AppStateValue {
   addEmployee: () => void
   saveDraft: () => Promise<void>
   commitStudio: (patch?: StudioSnapshotPatch) => Promise<void>
+  saveBonusTiers: (tiers: BonusTier[]) => Promise<void>
   closePeriod: () => Promise<void>
   duplicatePeriod: (period: PeriodRecord) => void
   importBackup: (raw: unknown) => void
@@ -196,7 +199,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user) return snapshot
+    if (!user) throw new Error('Войдите в аккаунт для сохранения в базе')
     const pushed = await pushDraft({
       studioId: snapshot.studioId ?? undefined,
       month: snapshot.month,
@@ -218,9 +221,8 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       setSyncState('pending')
       await persistSnapshot('pending', snapshot)
       if (!isSupabaseConfigured) {
-        setSyncState('synced')
-        setLastSyncedAt(new Date())
-        await persistSnapshot('synced', snapshot)
+        setSyncState('local')
+        await persistSnapshot('local', snapshot)
         return
       }
       if (!online) {
@@ -256,7 +258,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
           await pushSnapshot(queued)
           await removeSyncItem(item.id)
         }
-      } catch {
+      } catch (error) {
         setSyncState('error')
         await enqueueSync({
           id: `draft-${snapshot.month}`,
@@ -270,6 +272,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
           },
           attempts: 1,
         })
+        throw error
       }
     },
     [applySnapshot, online, persistSnapshot, pushSnapshot],
@@ -346,6 +349,45 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const saveDraft = useCallback(async () => {
     await commitStudio()
   }, [commitStudio])
+
+  const saveBonusTiers = useCallback(
+    async (tiers: BonusTier[]) => {
+      if (!isSupabaseConfigured) {
+        throw new Error('Подключите Supabase, чтобы сохранить фонд в базе')
+      }
+      if (!online) {
+        throw new Error('Для сохранения премиального фонда требуется интернет')
+      }
+      let targetStudioId = snapshotRef.current.studioId
+      if (!targetStudioId) {
+        const remote = await pullRemoteStudio()
+        targetStudioId = remote?.studioId ?? null
+      }
+      if (!targetStudioId) {
+        throw new Error('Студия не найдена. Войдите в аккаунт и повторите.')
+      }
+
+      setSyncState('pending')
+      try {
+        const persistedSettings = await saveRemoteBonusTiers(
+          targetStudioId,
+          tiers,
+        )
+        const next = applySnapshotPatch(snapshotRef.current, {
+          studioId: targetStudioId,
+          settings: persistedSettings,
+        })
+        applySnapshot(next)
+        await persistSnapshot('synced', next)
+        setSyncState('synced')
+        setLastSyncedAt(new Date())
+      } catch (error) {
+        setSyncState('error')
+        throw error
+      }
+    },
+    [applySnapshot, online, persistSnapshot],
+  )
 
   const closePeriod = useCallback(async () => {
     if (isSupabaseConfigured && !online) {
@@ -480,6 +522,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       addEmployee,
       saveDraft,
       commitStudio,
+      saveBonusTiers,
       closePeriod,
       duplicatePeriod,
       importBackup,
@@ -500,6 +543,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       ready,
       result,
       saveDraft,
+      saveBonusTiers,
       settings,
       studioId,
       syncState,

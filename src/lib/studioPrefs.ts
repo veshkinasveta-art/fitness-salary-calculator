@@ -53,7 +53,14 @@ export function mergeStudioSettings(
   incoming: Partial<StudioSettings> = {},
   storedId?: string,
 ): StudioSettings {
-  const merged = { ...current, ...incoming }
+  const merged = {
+    ...current,
+    ...incoming,
+    bonusTiers:
+      incoming.bonusTiers?.length === 2
+        ? incoming.bonusTiers
+        : current.bonusTiers,
+  }
   const googleSpreadsheetId = resolveSpreadsheetId(
     incoming.googleSpreadsheetId,
     current.googleSpreadsheetId,

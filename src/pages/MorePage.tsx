@@ -39,6 +39,7 @@ export function MorePage() {
   const {
     settings,
     commitStudio,
+    saveBonusTiers,
     syncState,
     lastSyncedAt,
     employees,
@@ -53,7 +54,10 @@ export function MorePage() {
   const [draft, setDraft] = useState<StudioSettings>(settings)
   const [productDraft, setProductDraft] = useState(products)
   const [saved, setSaved] = useState(false)
+  const [bonusSaved, setBonusSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [bonusSaving, setBonusSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [dialog, setDialog] = useState<'sheets' | 'supabase' | 'invite' | null>(
     null,
   )
@@ -70,12 +74,35 @@ export function MorePage() {
 
   const save = async () => {
     setSaving(true)
+    setSaveError('')
     try {
       await commitStudio({ settings: draft, products: productDraft })
       setSaved(true)
       window.setTimeout(() => setSaved(false), 1800)
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : 'Не удалось сохранить настройки',
+      )
     } finally {
       setSaving(false)
+    }
+  }
+
+  const saveFund = async () => {
+    setBonusSaving(true)
+    setSaveError('')
+    try {
+      await saveBonusTiers(draft.bonusTiers)
+      setBonusSaved(true)
+      window.setTimeout(() => setBonusSaved(false), 1800)
+    } catch (error) {
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : 'Не удалось сохранить премиальный фонд',
+      )
+    } finally {
+      setBonusSaving(false)
     }
   }
 
@@ -356,6 +383,82 @@ export function MorePage() {
             </div>
           </div>
         </div>
+        <div className="stack" aria-labelledby="bonus-fund-title">
+          <div>
+            <p className="eyebrow">Мотивация команды</p>
+            <h2 id="bonus-fund-title">Премиальный фонд</h2>
+            <p className="muted small" style={{ marginTop: 6 }}>
+              Фонд включается при достижении указанного процента плана.
+            </p>
+          </div>
+          <div className="bonus-tier-grid" role="group" aria-label="Уровни премии">
+            {draft.bonusTiers.map((tier, index) => (
+              <div className="bonus-tier-row" key={index}>
+                <label className="field">
+                  <span>Выполнение, %</span>
+                  <input
+                    className="input"
+                    type="number"
+                    min={0}
+                    max={1000}
+                    step={1}
+                    value={tier.thresholdPercent}
+                    onChange={(event) => {
+                      const value = Number(event.target.value)
+                      if (!Number.isSafeInteger(value) || value < 0) return
+                      setDraft((current) => ({
+                        ...current,
+                        bonusTiers: current.bonusTiers.map((item, tierIndex) =>
+                          tierIndex === index
+                            ? { ...item, thresholdPercent: value }
+                            : item,
+                        ),
+                      }))
+                    }}
+                  />
+                </label>
+                <label className="field">
+                  <span>Премия, ₽</span>
+                  <input
+                    className="input"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={tier.fundKopecks / 100}
+                    onChange={(event) => {
+                      const value = rublesToKopecks(event.target.value)
+                      if (value === null) return
+                      setDraft((current) => ({
+                        ...current,
+                        bonusTiers: current.bonusTiers.map((item, tierIndex) =>
+                          tierIndex === index
+                            ? { ...item, fundKopecks: value }
+                            : item,
+                        ),
+                      }))
+                    }}
+                  />
+                </label>
+              </div>
+            ))}
+          </div>
+          <div className="row" style={{ flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="button"
+              onClick={() => void saveFund()}
+              disabled={!ready || bonusSaving}
+            >
+              <Save size={17} />
+              {bonusSaving ? 'Сохраняем…' : 'Сохранить фонд'}
+            </button>
+            {bonusSaved && (
+              <span className="status status-success">
+                Сохранено в базе
+              </span>
+            )}
+          </div>
+        </div>
         <div>
           <p className="eyebrow">Абонементы</p>
           <h2>Цены абонементов</h2>
@@ -398,8 +501,19 @@ export function MorePage() {
             <Save size={17} />
             Сохранить настройки
           </button>
-          {saved && <span className="status status-success">Сохранено</span>}
+          {saved && (
+            <span className="status status-success">
+              {isSupabaseConfigured
+                ? 'Сохранено в базе'
+                : 'Сохранено локально'}
+            </span>
+          )}
         </div>
+        {saveError && (
+          <div className="notice notice-danger" role="alert">
+            <span className="field-error">{saveError}</span>
+          </div>
+        )}
       </section>
 
       <section className="card card-body stack" aria-labelledby="theme-title">
@@ -527,10 +641,10 @@ export function MorePage() {
         <SheetsSetupDialog
           currentId={sheetId}
           onClose={() => setDialog(null)}
-          onSave={(id) => {
+          onSave={async (id) => {
             const next = { ...draft, googleSpreadsheetId: id }
             setDraft(next)
-            void commitStudio({ settings: next })
+            await commitStudio({ settings: next })
           }}
         />
       )}

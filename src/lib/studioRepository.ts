@@ -1,4 +1,5 @@
 import type {
+  BonusTier,
   EmployeeInput,
   PeriodRecord,
   PeriodStatus,
@@ -20,6 +21,34 @@ export interface RemoteStudioState {
   products: Product[]
   settings: StudioSettings
   history: PeriodRecord[]
+}
+
+function validateBonusTiers(tiers: readonly BonusTier[]): BonusTier[] {
+  if (tiers.length !== 2) {
+    throw new Error('Премиальный фонд должен содержать два уровня')
+  }
+  const normalized = tiers
+    .map((tier) => ({
+      thresholdPercent: tier.thresholdPercent,
+      fundKopecks: tier.fundKopecks,
+    }))
+    .sort((left, right) => left.thresholdPercent - right.thresholdPercent)
+  normalized.forEach((tier, index) => {
+    if (
+      !Number.isSafeInteger(tier.thresholdPercent) ||
+      tier.thresholdPercent < 0 ||
+      tier.thresholdPercent > 1000
+    ) {
+      throw new Error(`Некорректный процент в строке ${index + 1}`)
+    }
+    if (!Number.isSafeInteger(tier.fundKopecks) || tier.fundKopecks < 0) {
+      throw new Error(`Некорректная сумма премии в строке ${index + 1}`)
+    }
+  })
+  if (normalized[0]!.thresholdPercent === normalized[1]!.thresholdPercent) {
+    throw new Error('Проценты уровней премии должны отличаться')
+  }
+  return normalized
 }
 
 function monthBounds(month: string) {
@@ -165,12 +194,13 @@ export async function pushDraft(input: {
   }
 
   const { start, end } = monthBounds(input.month)
-  const { data: existingPeriod } = await supabase
+  const { data: existingPeriod, error: periodLoadError } = await supabase
     .from('periods')
     .select('id, status')
     .eq('studio_id', studioId)
     .eq('starts_on', start)
     .maybeSingle()
+  if (periodLoadError) throw periodLoadError
 
   if (existingPeriod?.status === 'closed') {
     throw new Error('Закрытый период нельзя изменить')
@@ -194,7 +224,7 @@ export async function pushDraft(input: {
   }
 
   for (const employee of input.employees) {
-    await supabase.from('employees').upsert({
+    const { error } = await supabase.from('employees').upsert({
       id: employee.id,
       studio_id: studioId,
       full_name: employee.name,
@@ -208,10 +238,11 @@ export async function pushDraft(input: {
         sales: employee.sales,
       },
     })
+    if (error) throw error
   }
 
   for (const product of input.products) {
-    await supabase.from('products').upsert({
+    const { error } = await supabase.from('products').upsert({
       id: product.id,
       studio_id: studioId,
       name: product.name,
@@ -219,9 +250,14 @@ export async function pushDraft(input: {
       active: product.active,
       metadata: { trainings: product.trainings },
     })
+    if (error) throw error
   }
 
-  await supabase.from('sales').delete().eq('period_id', periodId)
+  const { error: salesDeleteError } = await supabase
+    .from('sales')
+    .delete()
+    .eq('period_id', periodId)
+  if (salesDeleteError) throw salesDeleteError
   const saleRows = input.employees.flatMap((employee) =>
     input.products
       .filter((product) => (employee.sales[product.id] ?? 0) > 0)
@@ -246,7 +282,11 @@ export async function pushDraft(input: {
     input.products,
     settings,
   )
-  await supabase.from('employee_period_metrics').delete().eq('period_id', periodId)
+  const { error: metricsDeleteError } = await supabase
+    .from('employee_period_metrics')
+    .delete()
+    .eq('period_id', periodId)
+  if (metricsDeleteError) throw metricsDeleteError
   if (result.employees.length > 0) {
     const { error } = await supabase.from('employee_period_metrics').insert(
       result.employees.map((employee) => ({
@@ -276,6 +316,59 @@ export async function pushDraft(input: {
   if (periodError) throw periodError
 
   return { studioId, periodId }
+}
+
+export async function saveRemoteBonusTiers(
+  studioId: string,
+  tiers: readonly BonusTier[],
+): Promise<StudioSettings> {
+  if (!supabase) throw new Error('Сначала подключите Supabase')
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+  if (authError) throw authError
+  if (!user) throw new Error('Войдите в аккаунт для сохранения в базе')
+
+  const normalized = validateBonusTiers(tiers)
+  const { data: studio, error: loadError } = await supabase
+    .from('studios')
+    .select('id, name, settings, version')
+    .eq('id', studioId)
+    .single()
+  if (loadError) throw loadError
+
+  const currentSettings = (studio.settings ?? {}) as Partial<StudioSettings>
+  const nextSettings = {
+    ...currentSettings,
+    bonusTiers: normalized,
+  }
+  const { data: saved, error: saveError } = await supabase
+    .from('studios')
+    .update({ settings: nextSettings })
+    .eq('id', studioId)
+    .eq('version', studio.version)
+    .select('name, settings')
+    .single()
+  if (saveError) {
+    if (saveError.code === 'PGRST116') {
+      throw new Error(
+        'Настройки были изменены другим пользователем. Обновите страницу и повторите.',
+      )
+    }
+    throw saveError
+  }
+
+  const persisted = (saved.settings ?? {}) as Partial<StudioSettings>
+  if (!Array.isArray(persisted.bonusTiers)) {
+    throw new Error('База не вернула сохранённый премиальный фонд')
+  }
+  return {
+    ...nextSettings,
+    ...persisted,
+    studioName: saved.name as string,
+    bonusTiers: validateBonusTiers(persisted.bonusTiers),
+  } as StudioSettings
 }
 
 export async function closeRemotePeriod(periodId: string): Promise<void> {

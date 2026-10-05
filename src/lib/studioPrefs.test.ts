@@ -22,6 +22,14 @@ describe('studio prefs merge', () => {
     expect(merged.googleSpreadsheetId).toBe('kept-sheet-id-1234567890')
   })
 
+  it('keeps default bonus tiers when the database has no configured tiers', () => {
+    const merged = mergeStudioSettings(defaultSettings, { bonusTiers: [] })
+    expect(merged.bonusTiers).toEqual([
+      { thresholdPercent: 80, fundKopecks: 4_000_000 },
+      { thresholdPercent: 100, fundKopecks: 6_000_000 },
+    ])
+  })
+
   it('replaces the id when a new table is chosen', () => {
     writeStoredSpreadsheetId('old-sheet-id-1234567890')
     const merged = mergeStudioSettings(
