@@ -6,6 +6,11 @@ import type {
   StudioSettings,
 } from '../app/model.ts'
 import { calculateStudioPeriod } from '../domain/studioCalculation.ts'
+import {
+  mergeStudioSettings,
+  readStoredSpreadsheetId,
+  resolveSpreadsheetId,
+} from './studioPrefs.ts'
 import { isSupabaseConfigured, supabase } from './supabase.ts'
 
 export interface RemoteStudioState {
@@ -47,10 +52,15 @@ export async function pullRemoteStudio(): Promise<RemoteStudioState | null> {
     .single()
   if (!studio) return null
 
+  const raw = (studio.settings ?? {}) as Partial<StudioSettings>
   const settings = {
-    ...(studio.settings as StudioSettings),
+    ...raw,
     studioName: studio.name as string,
-  }
+    googleSpreadsheetId: resolveSpreadsheetId(
+      raw.googleSpreadsheetId,
+      readStoredSpreadsheetId(),
+    ),
+  } as StudioSettings
 
   const [{ data: employees }, { data: products }, { data: periods }] =
     await Promise.all([
@@ -122,15 +132,21 @@ export async function pushDraft(input: {
   } = await supabase.auth.getUser()
   if (!user) throw new Error('Требуется вход в аккаунт')
 
+  const settings = mergeStudioSettings(
+    input.settings,
+    input.settings,
+    readStoredSpreadsheetId(),
+  )
+
   let studioId = input.studioId
   if (!studioId) {
     const { data: created, error } = await supabase
       .from('studios')
       .insert({
-        name: input.settings.studioName,
+        name: settings.studioName,
         currency_code: 'RUB',
         timezone: 'Europe/Moscow',
-        settings: input.settings,
+        settings,
         created_by: user.id,
       })
       .select('id')
@@ -141,8 +157,8 @@ export async function pushDraft(input: {
     const { error } = await supabase
       .from('studios')
       .update({
-        name: input.settings.studioName,
-        settings: input.settings,
+        name: settings.studioName,
+        settings,
       })
       .eq('id', studioId)
     if (error) throw error
@@ -228,7 +244,7 @@ export async function pushDraft(input: {
   const { result } = calculateStudioPeriod(
     input.employees,
     input.products,
-    input.settings,
+    settings,
   )
   await supabase.from('employee_period_metrics').delete().eq('period_id', periodId)
   if (result.employees.length > 0) {

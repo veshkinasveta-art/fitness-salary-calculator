@@ -13,7 +13,7 @@ import {
   Users,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../app/AppState'
 import type { StudioSettings } from '../app/model'
 import { InviteDialog } from '../features/auth/InviteDialog'
@@ -36,7 +36,7 @@ function rublesToKopecks(value: string) {
 export function MorePage() {
   const {
     settings,
-    updateSettings,
+    commitStudio,
     syncState,
     lastSyncedAt,
     employees,
@@ -45,20 +45,36 @@ export function MorePage() {
     month,
     importBackup,
     online,
+    ready,
   } = useAppState()
   const { preference, setPreference } = useTheme()
   const [draft, setDraft] = useState<StudioSettings>(settings)
+  const [productDraft, setProductDraft] = useState(products)
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [dialog, setDialog] = useState<'sheets' | 'supabase' | 'invite' | null>(
     null,
   )
   const importRef = useRef<HTMLInputElement>(null)
   const sheetId = settings.googleSpreadsheetId
 
-  const save = () => {
-    updateSettings(draft)
-    setSaved(true)
-    window.setTimeout(() => setSaved(false), 1800)
+  useEffect(() => {
+    setDraft(settings)
+  }, [settings])
+
+  useEffect(() => {
+    setProductDraft(products)
+  }, [products])
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      await commitStudio({ settings: draft, products: productDraft })
+      setSaved(true)
+      window.setTimeout(() => setSaved(false), 1800)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const exportBackup = () => {
@@ -330,8 +346,45 @@ export function MorePage() {
             </div>
           </div>
         </div>
+        <div>
+          <p className="eyebrow">Абонементы</p>
+          <h2>Цены абонементов</h2>
+          <p className="muted small" style={{ marginTop: 6 }}>
+            Цены хранятся в копейках и остаются после перезагрузки.
+          </p>
+        </div>
+        <div className="stack">
+          {productDraft.map((product) => (
+            <label className="field" key={product.id}>
+              <span>{product.name}</span>
+              <input
+                className="input"
+                type="number"
+                min={0}
+                step={1}
+                value={product.priceKopecks / 100}
+                onChange={(event) => {
+                  const value = rublesToKopecks(event.target.value)
+                  if (value === null) return
+                  setProductDraft((current) =>
+                    current.map((item) =>
+                      item.id === product.id
+                        ? { ...item, priceKopecks: value }
+                        : item,
+                    ),
+                  )
+                }}
+              />
+            </label>
+          ))}
+        </div>
         <div className="row">
-          <button type="button" className="button" onClick={save}>
+          <button
+            type="button"
+            className="button"
+            onClick={() => void save()}
+            disabled={!ready || saving}
+          >
             <Save size={17} />
             Сохранить настройки
           </button>
@@ -449,9 +502,9 @@ export function MorePage() {
           currentId={sheetId}
           onClose={() => setDialog(null)}
           onSave={(id) => {
-            const next = { ...settings, googleSpreadsheetId: id }
+            const next = { ...draft, googleSpreadsheetId: id }
             setDraft(next)
-            updateSettings(next)
+            void commitStudio({ settings: next })
           }}
         />
       )}

@@ -17,6 +17,8 @@ export interface DraftRecord {
   products: Product[]
   settings: StudioSettings
   history: PeriodRecord[]
+  studioId?: string | null
+  periodId?: string | null
   syncState: SyncState
   version: number
   updatedAt: string
