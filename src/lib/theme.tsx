@@ -6,16 +6,21 @@ import {
   useMemo,
   useState,
 } from 'react'
+import { ThemeBackdrop } from '../components/ThemeBackdrop.tsx'
 
 export type ThemePreference = 'system' | 'light' | 'dark'
+export type ThemePalette = 'classic' | 'rose'
 
 interface ThemeContextValue {
   preference: ThemePreference
+  palette: ThemePalette
   resolved: 'light' | 'dark'
   setPreference: (value: ThemePreference) => void
+  setPalette: (value: ThemePalette) => void
 }
 
-const STORAGE_KEY = 'salary-studio-theme'
+const THEME_KEY = 'salary-studio-theme'
+const PALETTE_KEY = 'salary-studio-palette'
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 function getSystemTheme(): 'light' | 'dark' {
@@ -24,11 +29,22 @@ function getSystemTheme(): 'light' | 'dark' {
     : 'light'
 }
 
+function readPalette(): ThemePalette {
+  const stored = localStorage.getItem(PALETTE_KEY)
+  return stored === 'classic' || stored === 'rose' ? stored : 'rose'
+}
+
+function themeColor(palette: ThemePalette, resolved: 'light' | 'dark') {
+  if (palette === 'rose') return resolved === 'dark' ? '#2a1b22' : '#f8eef2'
+  return resolved === 'dark' ? '#0f1512' : '#f3f6f2'
+}
+
 export function ThemeProvider({ children }: PropsWithChildren) {
   const [preference, setPreferenceState] = useState<ThemePreference>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const stored = localStorage.getItem(THEME_KEY)
     return stored === 'dark' || stored === 'light' ? stored : 'system'
   })
+  const [palette, setPaletteState] = useState<ThemePalette>(readPalette)
   const [systemTheme, setSystemTheme] = useState(getSystemTheme)
   const resolved = preference === 'system' ? systemTheme : preference
 
@@ -41,25 +57,36 @@ export function ThemeProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     document.documentElement.dataset.theme = resolved
+    document.documentElement.dataset.palette = palette
     document.documentElement.style.colorScheme = resolved
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', resolved === 'dark' ? '#0f1512' : '#f3f6f2')
-  }, [resolved])
+      ?.setAttribute('content', themeColor(palette, resolved))
+  }, [palette, resolved])
 
   const value = useMemo<ThemeContextValue>(
     () => ({
       preference,
+      palette,
       resolved,
       setPreference: (next) => {
         setPreferenceState(next)
-        localStorage.setItem(STORAGE_KEY, next)
+        localStorage.setItem(THEME_KEY, next)
+      },
+      setPalette: (next) => {
+        setPaletteState(next)
+        localStorage.setItem(PALETTE_KEY, next)
       },
     }),
-    [preference, resolved],
+    [palette, preference, resolved],
   )
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  return (
+    <ThemeContext.Provider value={value}>
+      <ThemeBackdrop />
+      {children}
+    </ThemeContext.Provider>
+  )
 }
 
 export function useTheme() {

@@ -16,9 +16,11 @@
   --danger: #b33a35;
   --focus: #0d7d55;
   --shadow: 0 10px 32px rgba(29, 51, 38, 0.08);
-  --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
+  --bg-glow: radial-gradient(1200px 520px at 12% -10%, rgba(23, 108, 74, 0.08), transparent 58%);
+  --hero-gradient: linear-gradient(145deg, #1b7a54 0%, #176c4a 58%, #0f5a3c 100%);
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 26px;
   --nav-height: 72px;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -46,6 +48,54 @@
   --danger: #ff8f88;
   --focus: #86e7bb;
   --shadow: 0 12px 36px rgba(0, 0, 0, 0.26);
+  --bg-glow: radial-gradient(1000px 480px at 80% 0%, rgba(104, 213, 161, 0.08), transparent 55%);
+  --hero-gradient: linear-gradient(145deg, #1d3c2e 0%, #163228 100%);
+}
+
+:root[data-palette="rose"] {
+  color-scheme: light;
+  --bg: #f8eef2;
+  --surface: #fffafb;
+  --surface-subtle: #f3e4ea;
+  --surface-strong: #ead4dc;
+  --text: #3b2430;
+  --text-muted: #8a6574;
+  --border: #edd8e0;
+  --primary: #8d3d57;
+  --primary-hover: #733247;
+  --primary-soft: #f4d7e0;
+  --on-primary: #fff7f9;
+  --success: #6e4a58;
+  --warning: #a66a3a;
+  --danger: #b13d4a;
+  --focus: #b56b82;
+  --shadow: 0 12px 34px rgba(108, 52, 72, 0.1);
+  --bg-glow:
+    radial-gradient(900px 460px at 8% -8%, rgba(196, 132, 152, 0.22), transparent 56%),
+    radial-gradient(720px 380px at 100% 8%, rgba(232, 196, 176, 0.18), transparent 50%);
+  --hero-gradient: linear-gradient(145deg, #a45b73 0%, #8d3d57 52%, #6e3146 100%);
+}
+
+:root[data-palette="rose"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #2a1b22;
+  --surface: #36242c;
+  --surface-subtle: #412b35;
+  --surface-strong: #513742;
+  --text: #f6e8ee;
+  --text-muted: #c4a3b0;
+  --border: #5a3c48;
+  --primary: #e3a8ba;
+  --primary-hover: #f0c2d0;
+  --primary-soft: #4a303a;
+  --on-primary: #2c1820;
+  --success: #d7b2bf;
+  --warning: #e2b48a;
+  --danger: #f0a0a8;
+  --focus: #f0c2d0;
+  --shadow: 0 14px 38px rgba(0, 0, 0, 0.32);
+  --bg-glow: radial-gradient(800px 420px at 90% 0%, rgba(227, 168, 186, 0.12), transparent 55%);
+  --hero-gradient: linear-gradient(145deg, #4a3038 0%, #3a242c 100%);
 }
 
 * {
@@ -59,10 +109,12 @@ html {
 }
 
 body {
+  position: relative;
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
   background: var(--bg);
+  background-image: var(--bg-glow);
   color: var(--text);
 }
 
@@ -115,6 +167,39 @@ h2 {
 h3 {
   font-size: 1rem;
   line-height: 1.3;
+}
+
+.theme-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.theme-silhouette {
+  position: absolute;
+  right: max(-48px, calc(50% - 620px));
+  bottom: -40px;
+  width: min(42vw, 320px);
+  height: auto;
+  color: var(--primary);
+  opacity: 0.08;
+  filter: blur(1.2px);
+}
+
+:root[data-palette="classic"] .theme-silhouette {
+  opacity: 0.035;
+}
+
+:root[data-palette="rose"] .theme-silhouette {
+  opacity: 0.1;
+}
+
+.app,
+.auth-shell {
+  position: relative;
+  z-index: 1;
 }
 
 .app {
@@ -189,8 +274,9 @@ h3 {
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
   box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
 }
 
 .card-body {
@@ -206,8 +292,9 @@ h3 {
   overflow: hidden;
   padding: 20px;
   border-radius: var(--radius-lg);
-  background: var(--primary);
+  background: var(--hero-gradient);
   color: var(--on-primary);
+  box-shadow: var(--shadow);
 }
 
 .hero-card::after {
@@ -372,10 +459,19 @@ h3 {
   color: var(--on-primary);
   font-weight: 720;
   text-decoration: none;
+  transition:
+    background 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .button:hover {
   background: var(--primary-hover);
+  box-shadow: var(--shadow);
+}
+
+.button:active {
+  transform: translateY(1px);
 }
 
 .button-secondary {
@@ -404,6 +500,12 @@ h3 {
   border-radius: 13px;
   background: var(--surface);
   color: var(--text);
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.icon-button:hover {
+  background: var(--primary-soft);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
 }
 
 .field {
@@ -426,6 +528,12 @@ h3 {
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.input:hover,
+.select:hover {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
 }
 
 .input[aria-invalid="true"] {
@@ -536,6 +644,7 @@ h3 {
   color: var(--text-muted);
   font-size: 0.7rem;
   font-weight: 650;
+  transition: background 160ms ease, color 160ms ease;
   text-decoration: none;
 }
 
@@ -683,6 +792,14 @@ h3 {
 }
 
 @media (min-width: 1024px) {
+  .theme-silhouette {
+    right: auto;
+    left: -28px;
+    bottom: 48px;
+    width: 220px;
+    opacity: 0.09;
+  }
+
   .app-layout {
     padding-bottom: 0;
     padding-left: 248px;
@@ -741,7 +858,7 @@ h3 {
   display: grid;
   place-items: end center;
   padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
-  background: color-mix(in srgb, #09110d 46%, transparent);
+  background: color-mix(in srgb, var(--text) 42%, transparent);
 }
 
 .dialog {

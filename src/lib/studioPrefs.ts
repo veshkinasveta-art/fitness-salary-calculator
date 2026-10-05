@@ -27,12 +27,24 @@ export function readStoredSpreadsheetId(): string | undefined {
   }
 }
 
+function readPrefsObject(): Record<string, unknown> {
+  try {
+    const raw = localStorage.getItem(STUDIO_PREFS_KEY)
+    return raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
+  } catch {
+    return {}
+  }
+}
+
 export function writeStoredSpreadsheetId(id: string | undefined): void {
   const next = resolveSpreadsheetId(id)
   if (!next) return
   localStorage.setItem(
     STUDIO_PREFS_KEY,
-    JSON.stringify({ googleSpreadsheetId: next }),
+    JSON.stringify({
+      ...readPrefsObject(),
+      googleSpreadsheetId: next,
+    }),
   )
 }
 

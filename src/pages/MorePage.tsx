@@ -3,6 +3,8 @@ import {
   Database,
   Download,
   FileSpreadsheet,
+  Flower2,
+  Leaf,
   LockKeyhole,
   MailPlus,
   Monitor,
@@ -23,7 +25,7 @@ import { createBackup } from '../lib/backup'
 import { formatMoney } from '../lib/format'
 import { spreadsheetUrl } from '../lib/googleSheet'
 import { isSupabaseConfigured } from '../lib/supabase'
-import { type ThemePreference, useTheme } from '../lib/theme'
+import { type ThemePalette, type ThemePreference, useTheme } from '../lib/theme'
 
 function rublesToKopecks(value: string) {
   const normalized = value.replace(/\s/g, '').replace(',', '.')
@@ -47,7 +49,7 @@ export function MorePage() {
     online,
     ready,
   } = useAppState()
-  const { preference, setPreference } = useTheme()
+  const { preference, palette, setPreference, setPalette } = useTheme()
   const [draft, setDraft] = useState<StudioSettings>(settings)
   const [productDraft, setProductDraft] = useState(products)
   const [saved, setSaved] = useState(false)
@@ -135,6 +137,14 @@ export function MorePage() {
     { id: 'system', label: 'Системная', icon: Monitor },
     { id: 'light', label: 'Светлая', icon: Sun },
     { id: 'dark', label: 'Тёмная', icon: Moon },
+  ]
+  const palettes: Array<{
+    id: ThemePalette
+    label: string
+    icon: typeof Flower2
+  }> = [
+    { id: 'rose', label: 'Розовая', icon: Flower2 },
+    { id: 'classic', label: 'Классическая', icon: Leaf },
   ]
 
   return (
@@ -397,6 +407,22 @@ export function MorePage() {
           <p className="eyebrow">Внешний вид</p>
           <h2 id="theme-title">Тема</h2>
         </div>
+        <p className="muted small">Палитра</p>
+        <div className="segmented" role="group" aria-label="Палитра оформления">
+          {palettes.map(({ id, label, icon: Icon }) => (
+            <button
+              type="button"
+              className={`segment ${palette === id ? 'segment-active' : ''}`}
+              key={id}
+              onClick={() => setPalette(id)}
+            >
+              <span className="row" style={{ justifyContent: 'center' }}>
+                <Icon size={16} /> {label}
+              </span>
+            </button>
+          ))}
+        </div>
+        <p className="muted small">Яркость</p>
         <div className="segmented">
           {themes.map(({ id, label, icon: Icon }) => (
             <button
