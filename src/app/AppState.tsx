@@ -82,7 +82,9 @@ interface AppStateValue {
   addEmployee: () => void
   saveDraft: () => Promise<void>
   commitStudio: (patch?: StudioSnapshotPatch) => Promise<void>
-  saveBonusTiers: (tiers: BonusTier[]) => Promise<void>
+  saveBonusTiers: (
+    tiers: BonusTier[],
+  ) => Promise<'remote' | 'local' | 'queued'>
   closePeriod: () => Promise<void>
   duplicatePeriod: (period: PeriodRecord) => void
   importBackup: (raw: unknown) => void
@@ -320,12 +322,18 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         try {
           const remote = await pullRemoteStudio()
           if (remote) {
+            const keepUnsyncedLocal =
+              draft !== undefined && draft.syncState !== 'synced'
             snapshot = applySnapshotPatch(snapshot, {
               studioId: remote.studioId,
               employees:
                 remote.employees.length > 0 ? remote.employees : snapshot.employees,
-              products: remote.products,
-              settings: pickDefined(remote.settings),
+              products: keepUnsyncedLocal
+                ? snapshot.products
+                : remote.products,
+              settings: keepUnsyncedLocal
+                ? pickDefined(snapshot.settings)
+                : pickDefined(remote.settings),
               history:
                 remote.history.length > 0 ? remote.history : snapshot.history,
             })
@@ -352,23 +360,44 @@ export function AppStateProvider({ children }: PropsWithChildren) {
 
   const saveBonusTiers = useCallback(
     async (tiers: BonusTier[]) => {
+      const localSnapshot = applySnapshotPatch(snapshotRef.current, {
+        settings: { bonusTiers: tiers },
+      })
+      applySnapshot(localSnapshot)
+
       if (!isSupabaseConfigured) {
-        throw new Error('Подключите Supabase, чтобы сохранить фонд в базе')
+        await persistSnapshot('local', localSnapshot)
+        setSyncState('local')
+        return 'local'
       }
       if (!online) {
-        throw new Error('Для сохранения премиального фонда требуется интернет')
+        await persistSnapshot('pending', localSnapshot)
+        await enqueueSync({
+          id: `draft-${localSnapshot.month}`,
+          kind: 'draft',
+          payload: {
+            id: 'current',
+            ...localSnapshot,
+            syncState: 'pending',
+            version: versionRef.current,
+            updatedAt: new Date().toISOString(),
+          },
+          attempts: 0,
+        })
+        setSyncState('pending')
+        return 'queued'
       }
-      let targetStudioId = snapshotRef.current.studioId
-      if (!targetStudioId) {
-        const remote = await pullRemoteStudio()
-        targetStudioId = remote?.studioId ?? null
-      }
-      if (!targetStudioId) {
-        throw new Error('Студия не найдена. Войдите в аккаунт и повторите.')
-      }
-
       setSyncState('pending')
+      await persistSnapshot('pending', localSnapshot)
       try {
+        let targetStudioId = snapshotRef.current.studioId
+        if (!targetStudioId) {
+          const remote = await pullRemoteStudio()
+          targetStudioId = remote?.studioId ?? null
+        }
+        if (!targetStudioId) {
+          throw new Error('Студия не найдена. Войдите в аккаунт и повторите.')
+        }
         const persistedSettings = await saveRemoteBonusTiers(
           targetStudioId,
           tiers,
@@ -381,8 +410,24 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         await persistSnapshot('synced', next)
         setSyncState('synced')
         setLastSyncedAt(new Date())
+        return 'remote'
       } catch (error) {
         setSyncState('error')
+        await persistSnapshot('error', localSnapshot)
+        await enqueueSync({
+          id: `draft-${localSnapshot.month}`,
+          kind: 'draft',
+          payload: {
+            id: 'current',
+            ...localSnapshot,
+            syncState: 'error',
+            version: versionRef.current,
+            updatedAt: new Date().toISOString(),
+          },
+          attempts: 1,
+          lastError:
+            error instanceof Error ? error.message : 'Ошибка сохранения фонда',
+        })
         throw error
       }
     },

@@ -26,7 +26,7 @@ test('supports draft input and history snapshot', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'История расчётов' })).toBeVisible()
 })
 
-test('shows editable premium fund defaults and reports missing backend', async ({
+test('keeps edited premium fund values after reload without backend', async ({
   page,
 }) => {
   await page.goto('#/more')
@@ -43,7 +43,11 @@ test('shows editable premium fund defaults and reports missing backend', async (
   await thresholds.nth(0).fill('85')
   await amounts.nth(0).fill('45000')
   await page.getByRole('button', { name: 'Сохранить фонд' }).click()
-  await expect(page.getByRole('alert')).toContainText('Подключите Supabase')
+  await expect(page.getByText('Сохранено на устройстве')).toBeVisible()
+
+  await page.reload()
+  await expect(page.getByLabel('Выполнение, %').nth(0)).toHaveValue('85')
+  await expect(page.getByLabel('Премия, ₽').nth(0)).toHaveValue('45000')
 })
 
 for (const viewport of viewports) {

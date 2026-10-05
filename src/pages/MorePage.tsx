@@ -55,6 +55,9 @@ export function MorePage() {
   const [productDraft, setProductDraft] = useState(products)
   const [saved, setSaved] = useState(false)
   const [bonusSaved, setBonusSaved] = useState(false)
+  const [bonusSaveTarget, setBonusSaveTarget] = useState<
+    'remote' | 'local' | 'queued'
+  >('local')
   const [saving, setSaving] = useState(false)
   const [bonusSaving, setBonusSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -92,14 +95,17 @@ export function MorePage() {
     setBonusSaving(true)
     setSaveError('')
     try {
-      await saveBonusTiers(draft.bonusTiers)
+      const target = await saveBonusTiers(draft.bonusTiers)
+      setBonusSaveTarget(target)
       setBonusSaved(true)
       window.setTimeout(() => setBonusSaved(false), 1800)
     } catch (error) {
       setSaveError(
-        error instanceof Error
-          ? error.message
-          : 'Не удалось сохранить премиальный фонд',
+        `${
+          error instanceof Error
+            ? error.message
+            : 'Не удалось сохранить премиальный фонд'
+        }. Изменения сохранены на устройстве и не будут сброшены.`,
       )
     } finally {
       setBonusSaving(false)
@@ -454,7 +460,11 @@ export function MorePage() {
             </button>
             {bonusSaved && (
               <span className="status status-success">
-                Сохранено в базе
+                {bonusSaveTarget === 'remote'
+                  ? 'Сохранено в базе'
+                  : bonusSaveTarget === 'queued'
+                    ? 'Сохранено, ожидает синхронизации'
+                    : 'Сохранено на устройстве'}
               </span>
             )}
           </div>
